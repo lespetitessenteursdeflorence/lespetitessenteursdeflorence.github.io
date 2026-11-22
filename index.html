@@ -356,6 +356,8 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
       <label class="f">E-mail<input id="oEmail" type="email" required autocomplete="email"></label>
       <label class="f">Réception
         <select id="oMode"><option>Retrait à l'atelier</option><option>Envoi postal</option></select></label>
+      <label class="f" id="payWrap" hidden>Paiement
+        <select id="oPay"><option value="paypal">PayPal, maintenant</option><option value="retrait">Sur place, au retrait</option><option value="autre">Autre moyen (Florence me recontacte)</option></select></label>
       <label class="f" id="addrWrap" hidden><span id="addrLabel">Adresse de livraison</span><textarea id="oAddr" rows="2" placeholder="N°, rue, code postal, ville"></textarea></label>
       <label class="f">Message (cadeau, étiquette personnalisée…)<textarea id="oMsg" rows="2"></textarea></label>
       <button class="btn primary" type="submit" id="sendBtn">Envoyer ma commande</button>
@@ -612,6 +614,8 @@ function recap(){
 
 const estLivraison13 = v => /Roquevaire/.test(v);
 $("#oMode").addEventListener("change",e=>{ const v=e.target.value;
+  const sp=$("#oPay").querySelector('[value="retrait"]'); sp.hidden=!v.startsWith("Retrait");
+  if(sp.hidden && $("#oPay").value==="retrait") $("#oPay").value="paypal";
   $("#addrWrap").hidden = v.startsWith("Retrait");
   $("#addrLabel").textContent = estLivraison13(v) ? "Adresse de livraison (Roquevaire et alentours)" : "Adresse de livraison";
   rendrePanier(); });
@@ -624,8 +628,14 @@ $("#orderForm").addEventListener("submit",async e=>{
   if(!mode.startsWith("Retrait") && !adr){ res.innerHTML=`<div class="msg err">Indiquez l'adresse de livraison.</div>`; return }
   // Lien PayPal.me avec le montant (sauf envoi postal : frais à confirmer)
   const totalCmd=sousTotal()+(fraisLivraison(sousTotal())||0);
-  const lienPaypal = CONFIG.PAYPAL && !/Envoi postal/.test(mode) ? `https://www.paypal.com/paypalme/${CONFIG.PAYPAL}/${totalCmd.toFixed(2)}EUR` : "";
-  const data={ _subject:`Nouvelle commande — ${nom}`, ...(lienPaypal?{paiement:`Lien PayPal proposé au client : ${lienPaypal}`}:{}), nom, email:mail, telephone:$("#oPhone").value, reception:$("#oMode").value,
+  const postal=/Envoi postal/.test(mode);
+  const choixPay = CONFIG.PAYPAL ? $("#oPay").value : "autre";
+  const lienPaypal = choixPay==="paypal" && !postal ? `https://www.paypal.com/paypalme/${CONFIG.PAYPAL}/${totalCmd.toFixed(2)}EUR` : "";
+  // N° de commande : repère pour Florence et le client (e-mail et confirmation)
+  const d=new Date(), numCmd=`PSF-${String(d.getDate()).padStart(2,"0")}${String(d.getMonth()+1).padStart(2,"0")}-${String(Math.floor(Math.random()*9000)+1000)}`;
+  const paiementTxt = choixPay==="paypal" ? (postal ? "PayPal — lien à envoyer après calcul des frais de port" : `PayPal — ${fmt(totalCmd)} À VÉRIFIER dans PayPal (paiement de ${nom}, ${fmt(totalCmd)})`)
+    : choixPay==="retrait" ? "Paiement sur place, au retrait" : "Autre moyen — à convenir avec le client";
+  const data={ _subject:`Commande ${numCmd} — ${nom} — ${choixPay==="paypal"?"PayPal":choixPay==="retrait"?"paiement au retrait":"paiement à convenir"}`, numero:numCmd, paiement:paiementTxt, nom, email:mail, telephone:$("#oPhone").value, reception:$("#oMode").value,
     adresse:$("#oAddr").value, message:$("#oMsg").value, commande:recap() };
   const btn=$("#sendBtn"); btn.disabled=true; btn.textContent="Envoi…";
   let ok=false;
@@ -635,10 +645,10 @@ $("#orderForm").addEventListener("submit",async e=>{
   btn.disabled=false; btn.textContent="Envoyer ma commande";
   if(ok){
     res.innerHTML = lienPaypal
-      ? `<div class="msg ok"><strong>Commande envoyée.</strong> Vous pouvez la régler dès maintenant par PayPal (${fmt(totalCmd)}). Florence vous confirme la commande sous 24 h à ${esc(mail)}.</div>
+      ? `<div class="msg ok"><strong>Commande n° ${numCmd} envoyée.</strong> Dernière étape : réglez ${fmt(totalCmd)} par PayPal.</div>
          <a class="btn primary paypal" href="${esc(lienPaypal)}" target="_blank" rel="noopener">Payer ${fmt(totalCmd)} avec PayPal</a>
-         <p class="meta" style="margin:0">Vous préférez payer autrement ? Florence vous proposera d'autres moyens en vous répondant.</p>`
-      : `<div class="msg ok"><strong>Commande envoyée.</strong> Florence vous répond sous 24 h à ${esc(mail)} pour confirmer${/Envoi postal/.test(mode)?" les frais d'envoi":""} et convenir du paiement.</div>`;
+         <p class="meta" style="margin:0">Florence lance la fabrication dès réception du paiement et vous confirme sous 24 h à ${esc(mail)}.</p>`
+      : `<div class="msg ok"><strong>Commande n° ${numCmd} envoyée.</strong> Florence vous répond sous 24 h à ${esc(mail)} pour confirmer${postal?" les frais d'envoi":""}${choixPay==="retrait"?". Vous réglerez sur place au retrait.":" et convenir du paiement."}</div>`;
     panier={}; sauver(); $("#orderForm").reset(); rendrePanier();
   }else{
     res.innerHTML=`<div class="msg err">La commande n'a pas pu être envoyée automatiquement. Copiez ce récapitulatif et envoyez-le à <strong>${esc(CONFIG.EMAIL)}</strong> :</div>
@@ -695,6 +705,7 @@ async function chargerTextes(){
     if(T.image_accueil){ const st=$("#heroStage"), im=new Image(); im.className="hero-img"; im.alt=T.nom||"";
       im.onload=()=>{ st.innerHTML=""; st.appendChild(im); st.classList.add("has-img") }; im.src=photoURL(T.image_accueil) }
     if(T.paypal) $("#payNote").textContent="Après l'envoi, vous pourrez régler directement par PayPal, ou attendre que Florence vous recontacte.";
+    if(T.paypal) $("#payWrap").hidden=false;
     if(T.paypal) CONFIG.PAYPAL=String(T.paypal).trim().replace(/^.*paypal(\.me|\.com\/paypalme)\//i,"").replace(/[\/?#].*$/,"");
     if(T.frais_livraison && !isNaN(num(T.frais_livraison))) CONFIG.FRAIS_LIVRAISON=num(T.frais_livraison);
     if(T.livraison_offerte_des && num(T.livraison_offerte_des)>0) CONFIG.LIVRAISON_OFFERTE=num(T.livraison_offerte_des);
