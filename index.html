@@ -713,12 +713,21 @@ $("#orderForm").addEventListener("submit",async e=>{
   const paiementTxt = choixPay==="paypal" ? `PayPal — ${fmt(totalCmd)} À VÉRIFIER dans PayPal (paiement de ${nom}, ${fmt(totalCmd)})`
     : choixPay==="retrait" ? "Paiement sur place, au retrait" : "Autre moyen — à convenir avec le client";
   const data={ _subject:`Commande ${numCmd} — ${nom} — ${choixPay==="paypal"?"PayPal":choixPay==="retrait"?"paiement au retrait":"paiement à convenir"}`, numero:numCmd, paiement:paiementTxt, nom, email:mail, telephone:$("#oPhone").value, reception:$("#oMode").value,
-    adresse:$("#oAddr").value, message:$("#oMsg").value, commande:recap() };
+    adresse:$("#oAddr").value, message:$("#oMsg").value, commande:recap(),
+    soustotal:sousTotal(), frais:(fraisLivraison(sousTotal())||0), total:totalCmd };
   const btn=$("#sendBtn"); btn.disabled=true; btn.textContent="Envoi…";
   let ok=false;
-  if(CONFIG.FORMSPREE_ID){
-    try{ const r=await fetch("https://formspree.io/f/"+CONFIG.FORMSPREE_ID,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify(data)}); ok=r.ok }catch(err){ ok=false }
-  }
+  // Envoi en double, en parallèle, pour plus de sécurité :
+  //  1) script Google → enregistre dans le suivi privé + e-mail à Florence
+  //  2) Formspree → copie de sécurité (archive + e-mail marqué « copie de sécurité »)
+  // La commande est validée dès que l'un des deux a bien reçu.
+  const envois=[];
+  if(CONFIG.COMMANDES_URL) envois.push(fetch(CONFIG.COMMANDES_URL,{method:"POST",body:JSON.stringify(data)})
+    .then(r=>r.json()).then(j=>!!(j&&j.ok)).catch(()=>false));
+  if(CONFIG.FORMSPREE_ID) envois.push(fetch("https://formspree.io/f/"+CONFIG.FORMSPREE_ID,{method:"POST",
+    headers:{"Content-Type":"application/json",Accept:"application/json"},
+    body:JSON.stringify({...data,_subject:data._subject+" (copie de sécurité)"})}).then(r=>r.ok).catch(()=>false));
+  ok=(await Promise.all(envois)).some(Boolean);
   btn.disabled=false; btn.textContent="Envoyer ma commande";
   if(ok){
     res.innerHTML = lienPaypal
@@ -828,6 +837,7 @@ async function chargerTextes(){
     if(T.image_accueil){ const st=$("#heroStage"), im=new Image(); im.className="hero-img"; im.alt=T.nom||"";
       im.onload=()=>{ st.innerHTML=""; st.appendChild(im); st.classList.add("has-img") }; im.src=photoURL(T.image_accueil) }
     if(T.paypal) $("#payNote").textContent="Après l'envoi, vous pourrez régler directement par PayPal, ou attendre que Florence vous recontacte.";
+    if(/^https:\/\/script\.google\.com\//.test(T.commandes_url||"")) CONFIG.COMMANDES_URL=T.commandes_url.trim();
     if(T.paypal) $("#payWrap").hidden=false;
     if(T.paypal) CONFIG.PAYPAL=String(T.paypal).trim().replace(/^.*paypal(\.me|\.com\/paypalme)\//i,"").replace(/[\/?#].*$/,"");
     if(T.frais_livraison && !isNaN(num(T.frais_livraison))) CONFIG.FRAIS_LIVRAISON=num(T.frais_livraison);
