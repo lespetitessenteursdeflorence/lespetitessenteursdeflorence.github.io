@@ -495,14 +495,18 @@ function normaliser(list){
 }
 /* Colonne "options" : « Unité : 2,50 | Lot de 3 : 6,50 » → formats au choix, prix « à partir de » */
 function prixEtOptions(p){
-  const options=String(p.options||"").split(/\||\n/).map(x=>{
-    const i=x.lastIndexOf(":"); if(i<0) return null;
-    const label=x.slice(0,i).trim(), prix=num(x.slice(i+1));
-    return label&&prix>0 ? {label,prix} : null;
-  }).filter(Boolean);
+  // Un format n'est valable que si ce qui suit le « : » est UNIQUEMENT un prix (ex. « Lot de 3 : 6,50 »).
+  // « Hauteur : 8cm » n'est donc jamais pris pour un prix : ce texte est affiché comme dimensions.
+  const morceaux=String(p.options||"").split(/\||\n/).map(x=>x.trim()).filter(Boolean);
+  const options=[], autres=[];
+  morceaux.forEach(x=>{
+    const m=x.match(/^(.+?)\s*:\s*(\d+(?:[.,]\d{1,2})?)\s*€?$/);
+    if(m && num(m[2])>0) options.push({label:m[1].trim(),prix:num(m[2])}); else autres.push(x);
+  });
+  const dims=[p.dimensions, autres.join(" · ")].map(x=>String(x||"").replace(/\s{2,}/g," · ").trim()).filter(Boolean).join(" · ");
   const base=num(p.prix);
   const prix=options.length ? Math.min(...options.map(o=>o.prix)) : base;
-  return {options, prix, aPartir: options.length>1 || /partir/i.test(p.prix||"")};
+  return {options, prix, dimensions:dims, aPartir: options.length>1 || /partir/i.test(p.prix||"")};
 }
 const prixAffiche = p => (p.aPartir?"À partir de ":"")+fmt(p.prix);
 const aChoisir = p => auChoix() || p.options.length>0;
@@ -587,6 +591,7 @@ function voir(id){
         ${auChoix()?"":`<dt>Parfum</dt><dd>${esc(p.parfum)}</dd>`}
         ${p.modele?`<dt>Modèle</dt><dd>${esc(p.modele)}</dd>`:""}
         ${p.contenance?`<dt>Contenance</dt><dd>${esc(p.contenance)}</dd>`:""}
+        ${p.dimensions?`<dt>Dimensions</dt><dd>${esc(p.dimensions)}</dd>`:""}
         ${p.duree?`<dt>Combustion</dt><dd>environ ${esc(p.duree)}</dd>`:""}
       </dl>
       <div class="row"><span class="price" id="fichePrix" style="font-size:1.3rem">${p.options.length?fmt(p.options[0].prix):fmt(p.prix)}</span><span class="meta">Fabriquée à la commande</span></div>
