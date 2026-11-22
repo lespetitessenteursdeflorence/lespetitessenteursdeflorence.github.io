@@ -396,6 +396,24 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
   </div>
 </aside>
 
+<!-- Formulaire de contact (quand chat_lien ou bandeau_lien est une adresse e-mail) -->
+<div class="scrim" id="cScrim" hidden></div>
+<div class="modal" id="cModal" hidden role="dialog" aria-modal="true" aria-label="Nous écrire">
+  <div class="box" style="grid-template-columns:1fr;max-width:480px">
+    <form class="info order" id="contactForm" novalidate>
+      <div class="row"><h3>Une question ?</h3><button class="x" type="button" data-cclose aria-label="Fermer">×</button></div>
+      <p class="meta" style="margin:0">Coffret cadeau, emballage, parfum… Florence vous répond par e-mail.</p>
+      <div class="two">
+        <label class="f">Nom<input id="cName" autocomplete="name"></label>
+        <label class="f">E-mail<input id="cEmail" type="email" autocomplete="email"></label>
+      </div>
+      <label class="f">Votre message<textarea id="cMsg" rows="5"></textarea></label>
+      <button class="btn primary" type="submit" id="cSend">Envoyer</button>
+      <div id="cResult"></div>
+    </form>
+  </div>
+</div>
+
 <!-- Fiche produit -->
 <div class="scrim" id="pScrim" hidden></div>
 <div class="modal" id="pModal" hidden role="dialog" aria-modal="true" aria-label="Fiche bougie"><div class="box" id="pBox"></div></div>
@@ -733,7 +751,30 @@ document.addEventListener("click",e=>{
     function sel(){ const r=document.createRange(); r.selectNodeContents($("#recapTxt")); const s=getSelection(); s.removeAllRanges(); s.addRange(r) } }
 });
 $("#scrim").onclick=fermerPanier; $("#pScrim").onclick=fermerFiche;
-document.addEventListener("keydown",e=>{ if(e.key=="Escape"){ fermerPanier(); fermerFiche() } });
+document.addEventListener("keydown",e=>{ if(e.key=="Escape"){ fermerPanier(); fermerFiche(); fermerContact() } });
+
+/* Formulaire de contact → e-mail de Florence (via Formspree) */
+const mailto = (adr, sujet, corps) => `mailto:${String(adr).trim()}?subject=${encodeURIComponent(sujet||"")}${corps?`&body=${encodeURIComponent(corps)}`:""}`;
+const estEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||"").trim());
+function ouvrirContact(){ $("#cResult").innerHTML=""; $("#contactForm").querySelectorAll("label,#cSend").forEach(x=>x.hidden=false); $("#cModal").hidden=$("#cScrim").hidden=false; setTimeout(()=>$("#cName").focus(),50) }
+function fermerContact(){ $("#cModal").hidden=$("#cScrim").hidden=true }
+document.addEventListener("click",e=>{
+  const c=e.target.closest("[data-contact]"); if(c){ e.preventDefault(); ouvrirContact(); return }
+  if(e.target.closest("[data-cclose]")||e.target.id==="cScrim") fermerContact();
+});
+document.addEventListener("keydown",e=>{ if((e.key==="Enter"||e.key===" ") && e.target.dataset && e.target.dataset.contact){ e.preventDefault(); ouvrirContact() } });
+$("#contactForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const nom=$("#cName").value.trim(), mail=$("#cEmail").value.trim(), msg=$("#cMsg").value.trim(), out=$("#cResult");
+  if(!estEmail(mail)||!msg){ out.innerHTML=`<div class="msg err">Indiquez votre e-mail et votre message pour que Florence puisse vous répondre.</div>`; return }
+  const b=$("#cSend"); b.disabled=true; b.textContent="Envoi…"; let ok=false;
+  try{ const r=await fetch("https://formspree.io/f/"+CONFIG.FORMSPREE_ID,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},
+    body:JSON.stringify({_subject:`Question — ${nom||mail}`,_replyto:mail,type:"Question (pas une commande)",nom,email:mail,message:msg})}); ok=r.ok }catch(err){}
+  b.disabled=false; b.textContent="Envoyer";
+  if(ok){ out.innerHTML=`<div class="msg ok"><strong>Message envoyé.</strong> Florence vous répond à ${esc(mail)}.</div>`;
+    $("#contactForm").reset(); $("#contactForm").querySelectorAll("label,#cSend").forEach(x=>x.hidden=true) }
+  else out.innerHTML=`<div class="msg err">L'envoi n'a pas fonctionné. Écrivez directement à <strong>${esc(CONFIG.EMAIL)}</strong>.</div>`;
+});
 $("#sort").onchange=rendreGrille;
 $("#contactMail").textContent=CONFIG.EMAIL;
 
@@ -773,9 +814,14 @@ async function chargerTextes(){
       const msg=T.chat_message||"Bonjour, j'ai une question sur vos bougies.";
       fab.href=`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`; fab.hidden=false;
     } else if(/^https?:\/\//.test(T.chat_lien||"")){ fab.href=T.chat_lien; fab.hidden=false }
+    else if(estEmail(T.chat_lien)){ fab.href=mailto(T.chat_lien, "Question sur vos bougies", T.chat_message); fab.removeAttribute("target"); fab.hidden=false }
+    if(T.chat_message) $("#cMsg").placeholder=T.chat_message;
     if(T.bandeau){ const bd=$("#bandeau"); bd.textContent=T.bandeau;
-      const lien=/^https?:\/\//.test(T.bandeau_lien||"") ? T.bandeau_lien : (fab.hidden ? "" : fab.getAttribute("href")||"");
+      const lien=/^https?:\/\//.test(T.bandeau_lien||"") ? T.bandeau_lien
+        : estEmail(T.bandeau_lien) ? mailto(T.bandeau_lien, "Coffret cadeau / emballage", "Bonjour, je souhaiterais des informations pour un coffret cadeau ou un emballage.")
+        : (fab.hidden ? "" : fab.getAttribute("href")||"");
       if(lien) bd.href=lien; else bd.removeAttribute("href");
+      if(lien.startsWith("mailto:")) bd.removeAttribute("target");
       bd.hidden=false; }
     if(T.email){ CONFIG.EMAIL=T.email; $("#contactMail").textContent=T.email }
     if(/^#[0-9a-f]{3,8}$/i.test(T.couleur||"")) document.documentElement.style.setProperty("--accent",T.couleur);
