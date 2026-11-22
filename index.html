@@ -57,17 +57,20 @@ nav.links a:hover{color:var(--ink)}
 @media (max-width:720px){nav.links{display:none}}
 
 /* Vitrine */
-.hero{padding-block:56px 40px;display:grid;grid-template-columns:1.2fr .8fr;gap:40px;align-items:center}
-.hero h1{font-size:clamp(2.4rem,6vw,4.2rem)}
+.hero{padding-block:56px 40px;display:grid;grid-template-columns:.85fr 1.15fr;gap:56px;align-items:center}
+.hero h1{font-size:clamp(2.1rem,4.2vw,3.4rem);line-height:1.08}
 .hero h1 em{font-style:normal;color:var(--accent)}
 .hero p{color:var(--muted);max-width:52ch;font-size:1.08rem}
 .hero .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}
 .btn{border:0;border-radius:999px;padding:12px 22px;font-weight:600;text-decoration:none;display:inline-block}
 .btn.primary{background:var(--accent);color:var(--accent-ink)}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
-.flame-stage{aspect-ratio:1;max-width:100%;display:grid;place-items:center}
-.flame-stage.has-img{aspect-ratio:auto}
-.hero-img{max-width:100%;max-height:420px;width:auto;height:auto;object-fit:contain;border-radius:var(--r)}
+.flame-stage{aspect-ratio:1;max-width:100%;display:grid;place-items:center;order:-1}
+.flame-stage.has-img{position:relative;padding:8%}
+.flame-stage.has-img::before{content:"";position:absolute;inset:4%;border-radius:50%;background:radial-gradient(circle at 50% 45%,var(--surface) 0 55%,color-mix(in srgb,var(--lav) 16%,var(--bg)) 100%);box-shadow:0 20px 50px rgb(43 33 48 / .08)}
+.flame-stage.has-img .hero-img{position:relative}
+.flame-stage.has-img{aspect-ratio:1}
+.hero-img{max-width:86%;max-height:380px;width:auto;height:auto;object-fit:contain;border-radius:var(--r)}
 @media (max-width:720px){.hero{grid-template-columns:1fr;padding-block:32px}.flame-stage{display:none}.flame-stage.has-img{display:grid;order:-1}.hero-img{max-height:220px}}
 
 /* Bougie dessinée en CSS */
@@ -231,7 +234,8 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
   .hero{padding-block:20px 28px;gap:16px}
   .hero h1{font-size:1.85rem}
   .hero p{font-size:1rem}
-  .hero-img{max-height:130px}
+  .hero-img{max-height:150px}
+  .flame-stage.has-img{width:min(210px,58vw);justify-self:center;padding:4%}
   .modal{padding:0}
   .modal .box{border-radius:0;height:100%;max-height:100%;display:block}
   .galerie .thumb{flex:none}
