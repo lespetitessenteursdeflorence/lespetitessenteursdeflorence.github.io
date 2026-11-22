@@ -140,6 +140,11 @@ select.sort{border:1px solid var(--line);background:var(--surface);color:var(--i
 a.bandeau[href]:hover{text-decoration:underline}
 @media (max-width:600px){.bandeau{font-size:.95rem;padding-block:10px}}
 
+.mchoix{text-align:center}
+.mcopy{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:8px 8px 8px 12px;font-size:.9rem}
+.mcopy span{user-select:all;word-break:break-all;min-width:0}
+.mcopy .btn{padding:7px 14px;font-size:.85rem}
+
 /* Choix du parfum */
 .choix select{font-size:1rem}
 .pqlist{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto;padding-right:2px}
@@ -411,6 +416,20 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
       <button class="btn primary" type="submit" id="cSend">Envoyer</button>
       <div id="cResult"></div>
     </form>
+  </div>
+</div>
+
+<!-- Choix pour écrire un e-mail -->
+<div class="scrim" id="mScrim" hidden></div>
+<div class="modal" id="mModal" hidden role="dialog" aria-modal="true" aria-label="Écrire à Florence">
+  <div class="box" style="grid-template-columns:1fr;max-width:420px">
+    <div class="info">
+      <div class="row"><h3>Écrire à Florence</h3><button class="x" type="button" data-mclose aria-label="Fermer">×</button></div>
+      <p class="meta" style="margin:0">Choisissez comment envoyer votre message :</p>
+      <a class="btn primary mchoix" id="mGmail" target="_blank" rel="noopener">Écrire avec Gmail</a>
+      <a class="btn ghost mchoix" id="mApp">Ouvrir mon application mail</a>
+      <div class="mcopy"><span id="mAdr"></span><button type="button" class="btn ghost" id="mCopy">Copier l'adresse</button></div>
+    </div>
   </div>
 </div>
 
@@ -751,9 +770,26 @@ document.addEventListener("click",e=>{
     function sel(){ const r=document.createRange(); r.selectNodeContents($("#recapTxt")); const s=getSelection(); s.removeAllRanges(); s.addRange(r) } }
 });
 $("#scrim").onclick=fermerPanier; $("#pScrim").onclick=fermerFiche;
-document.addEventListener("keydown",e=>{ if(e.key=="Escape"){ fermerPanier(); fermerFiche(); fermerContact() } });
+document.addEventListener("keydown",e=>{ if(e.key=="Escape"){ fermerPanier(); fermerFiche(); fermerContact(); fermerMail() } });
 
 /* Formulaire de contact → e-mail de Florence (via Formspree) */
+/* Lien e-mail : au clic, propose Gmail / appli mail / copier (un lien mailto seul ne fait rien sur beaucoup d'ordinateurs) */
+function versMail(el){ if(!/^mailto:/.test(el.getAttribute("href")||"")) return; el.dataset.mail=el.getAttribute("href") }
+function ouvrirMail(href){
+  const adr=decodeURIComponent(href.slice(7).split("?")[0]);
+  const q=new URLSearchParams(href.split("?")[1]||""), su=q.get("subject")||"", body=q.get("body")||"";
+  $("#mGmail").href=`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(adr)}&su=${encodeURIComponent(su)}&body=${encodeURIComponent(body)}`;
+  $("#mApp").href=href; $("#mAdr").textContent=adr; $("#mCopy").textContent="Copier l'adresse";
+  $("#mModal").hidden=$("#mScrim").hidden=false;
+}
+function fermerMail(){ $("#mModal").hidden=$("#mScrim").hidden=true }
+document.addEventListener("click",e=>{
+  const m=e.target.closest("[data-mail]"); if(m){ e.preventDefault(); ouvrirMail(m.dataset.mail); return }
+  if(e.target.closest("[data-mclose]")||e.target.id==="mScrim"||e.target.closest(".mchoix")) setTimeout(fermerMail,100);
+  if(e.target.id==="mCopy"){ const a=$("#mAdr").textContent;
+    try{ navigator.clipboard.writeText(a).then(()=>e.target.textContent="Copiée ✓",()=>{}) }catch(err){}
+    const r=document.createRange(); r.selectNodeContents($("#mAdr")); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r) }
+});
 const mailto = (adr, sujet, corps) => `mailto:${String(adr).trim()}?subject=${encodeURIComponent(sujet||"")}${corps?`&body=${encodeURIComponent(corps)}`:""}`;
 const estEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||"").trim());
 function ouvrirContact(){ $("#cResult").innerHTML=""; $("#contactForm").querySelectorAll("label,#cSend").forEach(x=>x.hidden=false); $("#cModal").hidden=$("#cScrim").hidden=false; setTimeout(()=>$("#cName").focus(),50) }
@@ -815,6 +851,7 @@ async function chargerTextes(){
       fab.href=`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`; fab.hidden=false;
     } else if(/^https?:\/\//.test(T.chat_lien||"")){ fab.href=T.chat_lien; fab.hidden=false }
     else if(estEmail(T.chat_lien)){ fab.href=mailto(T.chat_lien, "Question sur vos bougies", T.chat_message); fab.removeAttribute("target"); fab.hidden=false }
+    [fab].forEach(versMail);
     if(T.chat_message) $("#cMsg").placeholder=T.chat_message;
     if(T.bandeau){ const bd=$("#bandeau"); bd.textContent=T.bandeau;
       const lien=/^https?:\/\//.test(T.bandeau_lien||"") ? T.bandeau_lien
@@ -822,6 +859,7 @@ async function chargerTextes(){
         : (fab.hidden ? "" : fab.getAttribute("href")||"");
       if(lien) bd.href=lien; else bd.removeAttribute("href");
       if(lien.startsWith("mailto:")) bd.removeAttribute("target");
+      versMail(bd);
       bd.hidden=false; }
     if(T.email){ CONFIG.EMAIL=T.email; $("#contactMail").textContent=T.email }
     if(/^#[0-9a-f]{3,8}$/i.test(T.couleur||"")) document.documentElement.style.setProperty("--accent",T.couleur);
