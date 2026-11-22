@@ -93,6 +93,11 @@ select.sort{border:1px solid var(--line);background:var(--surface);color:var(--i
 .card{display:flex;flex-direction:column;gap:10px;min-width:0}
 .thumb{position:relative;aspect-ratio:4/5;max-width:100%;border-radius:var(--r);overflow:hidden;background:color-mix(in srgb,var(--lav) 14%,var(--surface));display:grid;place-items:center;border:0;padding:0;width:100%}
 .thumb img{width:100%;height:100%;object-fit:cover}
+/* Photo entière (jamais coupée) posée sur un fond flou de la même photo */
+.thumb img.fg{position:absolute;inset:0;object-fit:contain;z-index:1}
+.thumb img.bg{position:absolute;inset:0;object-fit:cover;filter:blur(16px) saturate(1.1) brightness(.92);transform:scale(1.15)}
+.thumb .badge{z-index:2}
+.nav,.dots{z-index:3}
 .cardimg{position:relative}
 .dots{position:absolute;left:0;right:0;bottom:10px;display:flex;justify-content:center;gap:5px;pointer-events:none}
 .dots span{width:7px;height:7px;border-radius:50%;background:rgb(255 255 255 / .55);box-shadow:0 0 2px rgb(0 0 0 / .4)}
@@ -117,6 +122,12 @@ select.sort{border:1px solid var(--line);background:var(--surface);color:var(--i
 .chat-fab:hover{transform:translateY(-2px)}
 @media (max-width:520px){.chat-fab span{display:none}.chat-fab{padding:14px}}
 @media (prefers-reduced-motion:no-preference){.chat-fab{transition:transform .2s}}
+
+/* Retours à la ligne du Sheet conservés */
+.txt,.pnotes{white-space:pre-line}
+
+.paypal{text-align:center;background:#0070ba;color:#fff}
+#orderResult{display:flex;flex-direction:column;gap:10px}
 
 /* Choix du parfum */
 .choix select{font-size:1rem}
@@ -225,6 +236,7 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
   .galerie .thumb{flex:none}
   .modal .box .thumb{min-height:0;height:46vh;background:#1c1720}
   .modal .box .thumb img{width:100%;height:100%;object-fit:contain}
+  .modal .box .thumb img.bg{object-fit:cover}
   .vignettes{padding:6px 10px}
   .vig{width:44px;height:44px}
   .modal .info{padding:16px 16px 0;gap:10px}
@@ -440,7 +452,7 @@ function bougie(p){
 }
 /* Colonne photo : un ou plusieurs liens (un par ligne, ou séparés par | ou des espaces) */
 const photosDe = p => String(p.photo||"").split(/[\s|,]+/).map(photoURL).filter(Boolean);
-function visuel(p){ const u=photosDe(p)[0]; return u?`<img src="${esc(u)}" alt="${esc(p.nom)}" loading="lazy">`:bougie(p) }
+function visuel(p){ const u=photosDe(p)[0]; return u?`<img class="bg" src="${esc(u)}" alt="" aria-hidden="true" loading="lazy"><img class="fg" src="${esc(u)}" alt="${esc(p.nom)}" loading="lazy">`:bougie(p) }
 const auChoix = () => parfums.length > 0;
 function parfumParDefaut(p){
   if(!auChoix()) return p.parfum||"";
@@ -481,7 +493,7 @@ function voir(id){
     <div class="info">
       <div class="row"><p class="eyebrow" style="margin:0">${esc(p.famille)}</p><button class="x" data-pclose aria-label="Fermer">×</button></div>
       <h3>${esc(p.nom)}</h3>
-      <p style="margin:0">${esc(p.description)}</p>
+      <p class="txt" style="margin:0">${esc(p.description)}</p>
       ${p.options.length?`<label class="f choix">Format
         <select id="choixFormat">${p.options.map(o=>`<option value="${esc(o.label)}">${esc(o.label)} — ${fmt(o.prix)}</option>`).join("")}</select></label>`:""}
       ${auChoix()?`<div class="f choix"><span>Parfums et quantités</span>
@@ -524,7 +536,7 @@ let galerie={photos:[],i:0};
 function montrerPhoto(i){
   const n=galerie.photos.length; if(n<2) return;
   galerie.i=(i+n)%n;
-  const img=$("#ficheImg img"); if(img) img.src=galerie.photos[galerie.i];
+  document.querySelectorAll("#ficheImg img").forEach(img=>img.src=galerie.photos[galerie.i]);
   document.querySelectorAll(".vig").forEach((b,k)=>b.setAttribute("aria-pressed",k===galerie.i));
 }
 function fermerFiche(){ $("#pModal").hidden=$("#pScrim").hidden=true }
@@ -597,7 +609,10 @@ $("#orderForm").addEventListener("submit",async e=>{
   if(!lignes().length) return;
   const mode=$("#oMode").value, adr=$("#oAddr").value.trim();
   if(!mode.startsWith("Retrait") && !adr){ res.innerHTML=`<div class="msg err">Indiquez l'adresse de livraison.</div>`; return }
-  const data={ _subject:`Nouvelle commande — ${nom}`, nom, email:mail, telephone:$("#oPhone").value, reception:$("#oMode").value,
+  // Lien PayPal.me avec le montant (sauf envoi postal : frais à confirmer)
+  const totalCmd=sousTotal()+(fraisLivraison(sousTotal())||0);
+  const lienPaypal = CONFIG.PAYPAL && !/Envoi postal/.test(mode) ? `https://www.paypal.com/paypalme/${CONFIG.PAYPAL}/${totalCmd.toFixed(2)}EUR` : "";
+  const data={ _subject:`Nouvelle commande — ${nom}`, ...(lienPaypal?{paiement:`Lien PayPal proposé au client : ${lienPaypal}`}:{}), nom, email:mail, telephone:$("#oPhone").value, reception:$("#oMode").value,
     adresse:$("#oAddr").value, message:$("#oMsg").value, commande:recap() };
   const btn=$("#sendBtn"); btn.disabled=true; btn.textContent="Envoi…";
   let ok=false;
@@ -606,7 +621,11 @@ $("#orderForm").addEventListener("submit",async e=>{
   }
   btn.disabled=false; btn.textContent="Envoyer ma commande";
   if(ok){
-    res.innerHTML=`<div class="msg ok"><strong>Commande envoyée.</strong> Florence vous répond sous 24 h à ${esc(mail)} pour confirmer et convenir du paiement.</div>`;
+    res.innerHTML = lienPaypal
+      ? `<div class="msg ok"><strong>Commande envoyée.</strong> Vous pouvez la régler dès maintenant par PayPal (${fmt(totalCmd)}). Florence vous confirme la commande sous 24 h à ${esc(mail)}.</div>
+         <a class="btn primary paypal" href="${esc(lienPaypal)}" target="_blank" rel="noopener">Payer ${fmt(totalCmd)} avec PayPal</a>
+         <p class="meta" style="margin:0">Vous préférez payer autrement ? Florence vous proposera d'autres moyens en vous répondant.</p>`
+      : `<div class="msg ok"><strong>Commande envoyée.</strong> Florence vous répond sous 24 h à ${esc(mail)} pour confirmer${/Envoi postal/.test(mode)?" les frais d'envoi":""} et convenir du paiement.</div>`;
     panier={}; sauver(); $("#orderForm").reset(); rendrePanier();
   }else{
     res.innerHTML=`<div class="msg err">La commande n'a pas pu être envoyée automatiquement. Copiez ce récapitulatif et envoyez-le à <strong>${esc(CONFIG.EMAIL)}</strong> :</div>
@@ -632,7 +651,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.gal) montrerPhoto(galerie.i+Number(t.dataset.gal));
   if(t.dataset.cgal){ const p=produits.find(x=>x.id==t.dataset.cgal), ph=p?photosDe(p):[], box=t.closest(".cardimg");
     if(ph.length>1&&box){ const i=((Number(box.dataset.i)||0)+Number(t.dataset.dir)+ph.length)%ph.length; box.dataset.i=i;
-      const img=box.querySelector(".thumb img"); if(img) img.src=ph[i];
+      box.querySelectorAll(".thumb img").forEach(img=>img.src=ph[i]);
       box.querySelectorAll(".dots span").forEach((d,k)=>d.classList.toggle("on",k===i)); } }
   if(t.dataset.vig!==undefined) montrerPhoto(Number(t.dataset.vig));
   if(t.dataset.inc) ajouter(t.dataset.inc,1);
@@ -662,6 +681,7 @@ async function chargerTextes(){
     if(T.logo){ const i=$("#logoImg"); i.src=photoURL(T.logo); i.hidden=false; i.onerror=()=>i.hidden=true }
     if(T.image_accueil){ const st=$("#heroStage"), im=new Image(); im.className="hero-img"; im.alt=T.nom||"";
       im.onload=()=>{ st.innerHTML=""; st.appendChild(im); st.classList.add("has-img") }; im.src=photoURL(T.image_accueil) }
+    if(T.paypal) CONFIG.PAYPAL=String(T.paypal).trim().replace(/^.*paypal(\.me|\.com\/paypalme)\//i,"").replace(/[\/?#].*$/,"");
     if(T.frais_livraison && !isNaN(num(T.frais_livraison))) CONFIG.FRAIS_LIVRAISON=num(T.frais_livraison);
     if(T.livraison_offerte_des && num(T.livraison_offerte_des)>0) CONFIG.LIVRAISON_OFFERTE=num(T.livraison_offerte_des);
     rendrePanier();
@@ -711,7 +731,7 @@ function rendreParfums(){
       <summary><span class="pdot" style="background:${col}"></span><span class="pnom">${esc(p.nom)}${p.famille?`<br><span class="pfam">${esc(p.famille)}</span>`:""}</span><span class="plus" aria-hidden="true">+</span></summary>
       <div class="pbody">
         ${p.notes?`<p class="pnotes">${esc(p.notes)}</p>`:""}
-        ${p.description?`<p>${esc(p.description)}</p>`:""}
+        ${p.description?`<p class="txt">${esc(p.description)}</p>`:""}
       </div></details>`;
   }).join("");
 }
