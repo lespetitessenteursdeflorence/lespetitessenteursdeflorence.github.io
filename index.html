@@ -345,7 +345,7 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
   <div class="drawer-body" id="cartLines"></div>
   <div class="drawer-foot" id="cartFoot">
     <div class="subtot"><span>Sous-total</span><span id="cartSub">0,00 €</span></div>
-    <div class="subtot" id="shipRow" hidden><span id="shipLabel">Livraison</span><span id="cartShip"></span></div>
+    <div class="subtot" id="shipRow" hidden><span id="shipLabel">Frais d'envoi</span><span id="cartShip"></span></div>
     <p class="meta" id="shipHint" hidden style="margin:0"></p>
     <div class="total"><span>Total</span><span id="cartTotal">0,00 €</span></div>
     <form class="order" id="orderForm" novalidate>
@@ -355,7 +355,7 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
       </div>
       <label class="f">E-mail<input id="oEmail" type="email" required autocomplete="email"></label>
       <label class="f">Réception
-        <select id="oMode"><option>Retrait à l'atelier</option><option>Envoi postal</option></select></label>
+        <select id="oMode"><option>Retrait à l'atelier</option><option value="Envoi postal">Envoi postal (+4,90 €)</option></select></label>
       <label class="f" id="payWrap" hidden>Paiement
         <select id="oPay"><option value="paypal">PayPal, maintenant</option><option value="retrait">Sur place, au retrait</option><option value="autre">Autre moyen (Florence me recontacte)</option></select></label>
       <label class="f" id="addrWrap" hidden><span id="addrLabel">Adresse de livraison</span><textarea id="oAddr" rows="2" placeholder="N°, rue, code postal, ville"></textarea></label>
@@ -380,8 +380,8 @@ const CONFIG = {
   FORMSPREE_ID: "mdeekkja",
   EMAIL: "florence@lespetitessenteurs.fr",
   QTE_MAX: 20,
-  FRAIS_LIVRAISON: 4.90,     // livraison à Roquevaire et alentours (modifiable dans Textes : frais_livraison)
-  LIVRAISON_OFFERTE: 50      // offerte dès ce montant (modifiable dans Textes : livraison_offerte_des)
+  FRAIS_LIVRAISON: 4.90,     // envoi postal, tarif unique (modifiable dans Textes : frais_livraison)
+  LIVRAISON_OFFERTE: 0       // 0 = jamais offerte ; sinon offerte dès ce montant (Textes : livraison_offerte_des)
 };
 /* ======================================================= */
 
@@ -576,8 +576,8 @@ function lignes(){
 }
 function sousTotal(){ return lignes().reduce((s,l)=>s+l.q*l.prix,0) }
 function fraisLivraison(st){
-  if(!/Roquevaire/.test($("#oMode").value)) return null;            // retrait ou envoi postal : pas de frais auto
-  return st>=CONFIG.LIVRAISON_OFFERTE ? 0 : CONFIG.FRAIS_LIVRAISON;
+  if(!/Envoi postal/.test($("#oMode").value)) return null;          // retrait : pas de frais
+  return CONFIG.LIVRAISON_OFFERTE>0 && st>=CONFIG.LIVRAISON_OFFERTE ? 0 : CONFIG.FRAIS_LIVRAISON;
 }
 function rendrePanier(){
   const ls=lignes(), n=ls.reduce((s,l)=>s+l.q,0), st=sousTotal(), fr=fraisLivraison(st);
@@ -586,9 +586,8 @@ function rendrePanier(){
   $("#shipRow").hidden = fr===null;
   if(fr!==null) $("#cartShip").textContent = fr===0 ? "Offerte" : fmt(fr);
   const reste=CONFIG.LIVRAISON_OFFERTE-st, hint=$("#shipHint");
-  hint.hidden = !(fr!==null && fr>0 && reste>0);
+  hint.hidden = !(fr!==null && fr>0 && CONFIG.LIVRAISON_OFFERTE>0 && reste>0);
   if(!hint.hidden) hint.textContent=`Plus que ${fmt(reste)} pour profiter de la livraison offerte.`;
-  if(/Envoi postal/.test($("#oMode").value)){ hint.hidden=false; hint.textContent="Frais d'envoi postal calculés et confirmés par Florence avant paiement." }
   $("#cartTotal").textContent=fmt(st+(fr||0));
   $("#cartLines").innerHTML = ls.length ? ls.map(({k,p,q,parfum,format,prix})=>`
     <div class="line">
@@ -608,7 +607,6 @@ function recap(){
   return ls.map(({p,q,parfum,format,prix})=>`${q} × ${p.nom}${format?" ("+format+")":""} — parfum : ${parfum||"non précisé"}${!format&&p.contenance?", "+p.contenance:""} — ${fmt(prix*q)}`).join("\n")
     +`\nSous-total : ${fmt(st)}`
     +(fr===null?"":`\nLivraison : ${fr===0?"offerte":fmt(fr)}`)
-    +(/Envoi postal/.test($("#oMode").value)?"\nEnvoi postal : frais à confirmer":"")
     +`\nTotal : ${fmt(st+(fr||0))}`;
 }
 
@@ -626,14 +624,14 @@ $("#orderForm").addEventListener("submit",async e=>{
   if(!lignes().length) return;
   const mode=$("#oMode").value, adr=$("#oAddr").value.trim();
   if(!mode.startsWith("Retrait") && !adr){ res.innerHTML=`<div class="msg err">Indiquez l'adresse de livraison.</div>`; return }
-  // Lien PayPal.me avec le montant (sauf envoi postal : frais à confirmer)
+  // Lien PayPal.me avec le montant (frais d'envoi compris)
   const totalCmd=sousTotal()+(fraisLivraison(sousTotal())||0);
   const postal=/Envoi postal/.test(mode);
   const choixPay = CONFIG.PAYPAL ? $("#oPay").value : "autre";
-  const lienPaypal = choixPay==="paypal" && !postal ? `https://www.paypal.com/paypalme/${CONFIG.PAYPAL}/${totalCmd.toFixed(2)}EUR` : "";
+  const lienPaypal = choixPay==="paypal" ? `https://www.paypal.com/paypalme/${CONFIG.PAYPAL}/${totalCmd.toFixed(2)}EUR` : "";
   // N° de commande : repère pour Florence et le client (e-mail et confirmation)
   const d=new Date(), numCmd=`PSF-${String(d.getDate()).padStart(2,"0")}${String(d.getMonth()+1).padStart(2,"0")}-${String(Math.floor(Math.random()*9000)+1000)}`;
-  const paiementTxt = choixPay==="paypal" ? (postal ? "PayPal — lien à envoyer après calcul des frais de port" : `PayPal — ${fmt(totalCmd)} À VÉRIFIER dans PayPal (paiement de ${nom}, ${fmt(totalCmd)})`)
+  const paiementTxt = choixPay==="paypal" ? `PayPal — ${fmt(totalCmd)} À VÉRIFIER dans PayPal (paiement de ${nom}, ${fmt(totalCmd)})`
     : choixPay==="retrait" ? "Paiement sur place, au retrait" : "Autre moyen — à convenir avec le client";
   const data={ _subject:`Commande ${numCmd} — ${nom} — ${choixPay==="paypal"?"PayPal":choixPay==="retrait"?"paiement au retrait":"paiement à convenir"}`, numero:numCmd, paiement:paiementTxt, nom, email:mail, telephone:$("#oPhone").value, reception:$("#oMode").value,
     adresse:$("#oAddr").value, message:$("#oMsg").value, commande:recap() };
@@ -648,7 +646,7 @@ $("#orderForm").addEventListener("submit",async e=>{
       ? `<div class="msg ok"><strong>Commande n° ${numCmd} envoyée.</strong> Dernière étape : réglez ${fmt(totalCmd)} par PayPal.</div>
          <a class="btn primary paypal" href="${esc(lienPaypal)}" target="_blank" rel="noopener">Payer ${fmt(totalCmd)} avec PayPal</a>
          <p class="meta" style="margin:0">Florence lance la fabrication dès réception du paiement et vous confirme sous 24 h à ${esc(mail)}.</p>`
-      : `<div class="msg ok"><strong>Commande n° ${numCmd} envoyée.</strong> Florence vous répond sous 24 h à ${esc(mail)} pour confirmer${postal?" les frais d'envoi":""}${choixPay==="retrait"?". Vous réglerez sur place au retrait.":" et convenir du paiement."}</div>`;
+      : `<div class="msg ok"><strong>Commande n° ${numCmd} envoyée.</strong> Florence vous répond sous 24 h à ${esc(mail)} pour confirmer${choixPay==="retrait"?". Vous réglerez sur place au retrait.":" et convenir du paiement."}</div>`;
     panier={}; sauver(); $("#orderForm").reset(); rendrePanier();
   }else{
     res.innerHTML=`<div class="msg err">La commande n'a pas pu être envoyée automatiquement. Copiez ce récapitulatif et envoyez-le à <strong>${esc(CONFIG.EMAIL)}</strong> :</div>
@@ -708,7 +706,8 @@ async function chargerTextes(){
     if(T.paypal) $("#payWrap").hidden=false;
     if(T.paypal) CONFIG.PAYPAL=String(T.paypal).trim().replace(/^.*paypal(\.me|\.com\/paypalme)\//i,"").replace(/[\/?#].*$/,"");
     if(T.frais_livraison && !isNaN(num(T.frais_livraison))) CONFIG.FRAIS_LIVRAISON=num(T.frais_livraison);
-    if(T.livraison_offerte_des && num(T.livraison_offerte_des)>0) CONFIG.LIVRAISON_OFFERTE=num(T.livraison_offerte_des);
+    CONFIG.LIVRAISON_OFFERTE = num(T.livraison_offerte_des)>0 ? num(T.livraison_offerte_des) : 0;
+    { const o=$('#oMode option[value="Envoi postal"]'); if(o) o.textContent=`Envoi postal (+${fmt(CONFIG.FRAIS_LIVRAISON)})`; }
     rendrePanier();
     const fab=$("#chatFab");
     /* Tawk.to : coller dans "tawk" le code fourni par tawk.to (ou juste son adresse embed.tawk.to/…/…) */
