@@ -346,7 +346,7 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
       <label class="f" id="addrWrap" hidden><span id="addrLabel">Adresse de livraison</span><textarea id="oAddr" rows="2" placeholder="N°, rue, code postal, ville"></textarea></label>
       <label class="f">Message (cadeau, étiquette personnalisée…)<textarea id="oMsg" rows="2"></textarea></label>
       <button class="btn primary" type="submit" id="sendBtn">Envoyer ma commande</button>
-      <p class="meta" style="margin:0">Aucun paiement en ligne : Florence vous recontacte pour confirmer et régler.</p>
+      <p class="meta" id="payNote" style="margin:0">Aucun paiement en ligne : Florence vous recontacte pour confirmer et régler.</p>
     </form>
     <div id="orderResult"></div>
   </div>
@@ -681,6 +681,7 @@ async function chargerTextes(){
     if(T.logo){ const i=$("#logoImg"); i.src=photoURL(T.logo); i.hidden=false; i.onerror=()=>i.hidden=true }
     if(T.image_accueil){ const st=$("#heroStage"), im=new Image(); im.className="hero-img"; im.alt=T.nom||"";
       im.onload=()=>{ st.innerHTML=""; st.appendChild(im); st.classList.add("has-img") }; im.src=photoURL(T.image_accueil) }
+    if(T.paypal) $("#payNote").textContent="Après l'envoi, vous pourrez régler directement par PayPal, ou attendre que Florence vous recontacte.";
     if(T.paypal) CONFIG.PAYPAL=String(T.paypal).trim().replace(/^.*paypal(\.me|\.com\/paypalme)\//i,"").replace(/[\/?#].*$/,"");
     if(T.frais_livraison && !isNaN(num(T.frais_livraison))) CONFIG.FRAIS_LIVRAISON=num(T.frais_livraison);
     if(T.livraison_offerte_des && num(T.livraison_offerte_des)>0) CONFIG.LIVRAISON_OFFERTE=num(T.livraison_offerte_des);
