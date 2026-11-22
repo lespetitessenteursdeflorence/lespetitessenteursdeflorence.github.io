@@ -133,6 +133,12 @@ select.sort{border:1px solid var(--line);background:var(--surface);color:var(--i
 .paypal{text-align:center;background:#0070ba;color:#fff}
 #orderResult{display:flex;flex-direction:column;gap:10px}
 
+/* Bandeau d'annonce (texte modifiable dans l'onglet Textes : bandeau, bandeau_lien) */
+.bandeau{display:block;background:var(--accent);color:var(--accent-ink);text-align:center;font-size:.88rem;font-weight:600;line-height:1.35;text-decoration:none;
+  padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+a.bandeau[href]:hover{text-decoration:underline}
+@media (max-width:600px){.bandeau{font-size:.8rem;padding-block:6px}}
+
 /* Choix du parfum */
 .choix select{font-size:1rem}
 .pqlist{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto;padding-right:2px}
@@ -257,6 +263,7 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
 </style>
 
 <header>
+  <a class="bandeau" id="bandeau" hidden target="_blank" rel="noopener"></a>
   <div class="wrap bar">
     <a class="logo" href="#top" id="top"><img id="logoImg" alt="Logo" hidden><span><span data-t="nom">Les Petites Senteurs de Florence</span><small data-t="sous_titre">Bougies artisanales · Provence</small></span></a>
     <nav class="links" aria-label="Sections">
@@ -347,7 +354,7 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
       </div>
       <label class="f">E-mail<input id="oEmail" type="email" required autocomplete="email"></label>
       <label class="f">Réception
-        <select id="oMode"><option>Retrait à l'atelier</option><option>Livraison à Roquevaire et alentours</option><option>Envoi postal</option></select></label>
+        <select id="oMode"><option>Retrait à l'atelier</option><option>Envoi postal</option></select></label>
       <label class="f" id="addrWrap" hidden><span id="addrLabel">Adresse de livraison</span><textarea id="oAddr" rows="2" placeholder="N°, rue, code postal, ville"></textarea></label>
       <label class="f">Message (cadeau, étiquette personnalisée…)<textarea id="oMsg" rows="2"></textarea></label>
       <button class="btn primary" type="submit" id="sendBtn">Envoyer ma commande</button>
@@ -707,6 +714,10 @@ async function chargerTextes(){
       const msg=T.chat_message||"Bonjour, j'ai une question sur vos bougies.";
       fab.href=`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`; fab.hidden=false;
     } else if(/^https?:\/\//.test(T.chat_lien||"")){ fab.href=T.chat_lien; fab.hidden=false }
+    if(T.bandeau){ const bd=$("#bandeau"); bd.textContent=T.bandeau;
+      const lien=/^https?:\/\//.test(T.bandeau_lien||"") ? T.bandeau_lien : (fab.hidden ? "" : fab.getAttribute("href")||"");
+      if(lien) bd.href=lien; else bd.removeAttribute("href");
+      bd.hidden=false; }
     if(T.email){ CONFIG.EMAIL=T.email; $("#contactMail").textContent=T.email }
     if(/^#[0-9a-f]{3,8}$/i.test(T.couleur||"")) document.documentElement.style.setProperty("--accent",T.couleur);
     const liens=[["Instagram",T.instagram],["Facebook",T.facebook]].filter(l=>/^https?:\/\//.test(l[1]||""));
