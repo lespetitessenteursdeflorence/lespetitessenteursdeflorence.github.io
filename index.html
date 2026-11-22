@@ -188,8 +188,26 @@ footer .cols{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
 .drawer-head h2{font-size:1.5rem}
 .x{border:0;background:none;color:var(--ink);font-size:1.6rem;line-height:1;padding:4px 8px}
 .drawer-body{flex:1;overflow:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px}
-.line{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding-bottom:14px;border-bottom:1px solid var(--line)}
-.line .nm{font-weight:600;min-width:0}
+.line{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:start;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.lthumb{width:64px;height:64px;border-radius:10px;overflow:hidden;background:color-mix(in srgb,var(--lav) 16%,var(--surface))}
+.lthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.linfo{display:flex;flex-direction:column;gap:6px;min-width:0}
+.linfo .meta{font-size:.84rem;line-height:1.35}
+.lrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.line .price{white-space:nowrap}
+.back{border:0;background:none;color:var(--ink);font-size:1.8rem;line-height:1;padding:0 10px 0 0}
+.drawer-head{gap:6px}.drawer-head h2{flex:1}
+.checkout{gap:12px}
+.ckrecap:empty{display:none}
+.vider{align-self:flex-end;background:none;border:0;padding:0;color:var(--muted);font:inherit;font-size:.85rem;text-decoration:underline;margin-bottom:-4px}
+.vider:hover{color:var(--ink)}
+.vider.confirm{color:#a83a3a;font-weight:600}
+.two > *{min-width:0}
+.two input{width:100%;min-width:0}
+.ckrecap{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--bg);border-radius:10px;padding:10px 12px;font-size:.9rem}
+.ckrecap button{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;font:inherit}
+.cktotal{display:flex;justify-content:space-between;font-size:1.1rem;font-weight:600;font-variant-numeric:tabular-nums;padding-top:6px;border-top:1px solid var(--line)}
+.line .nm{font-weight:600;min-width:0;line-height:1.3}
 .qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px}
 .qty button{border:0;background:none;color:var(--ink);width:32px;height:30px;font-size:1.1rem}
 .qty span{min-width:22px;text-align:center;font-variant-numeric:tabular-nums}
@@ -341,13 +359,23 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
 <!-- Panier -->
 <div class="scrim" id="scrim" hidden></div>
 <aside class="drawer" id="drawer" hidden aria-label="Panier">
-  <div class="drawer-head"><h2>Votre panier</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+  <div class="drawer-head">
+    <button class="back" id="ckBack" hidden aria-label="Retour au panier">‹</button>
+    <h2 id="drawerTitle">Votre panier</h2><button class="x" data-close aria-label="Fermer">×</button>
+  </div>
+  <!-- Étape 1 : le panier -->
   <div class="drawer-body" id="cartLines"></div>
   <div class="drawer-foot" id="cartFoot">
+    <button type="button" class="vider" id="viderPanier">Vider le panier</button>
     <div class="subtot"><span>Sous-total</span><span id="cartSub">0,00 €</span></div>
     <div class="subtot" id="shipRow" hidden><span id="shipLabel">Frais d'envoi</span><span id="cartShip"></span></div>
     <p class="meta" id="shipHint" hidden style="margin:0"></p>
     <div class="total"><span>Total</span><span id="cartTotal">0,00 €</span></div>
+    <button class="btn primary" type="button" id="goCheckout">Commander</button>
+  </div>
+  <!-- Étape 2 : coordonnées et envoi -->
+  <div class="drawer-body checkout" id="checkout" hidden>
+    <div class="ckrecap" id="ckRecap"></div>
     <form class="order" id="orderForm" novalidate>
       <div class="two">
         <label class="f">Nom<input id="oName" required autocomplete="name"></label>
@@ -360,6 +388,7 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
         <select id="oPay"><option value="paypal">PayPal, maintenant</option><option value="retrait">Sur place, au retrait</option><option value="autre">Autre moyen (Florence me recontacte)</option></select></label>
       <label class="f" id="addrWrap" hidden><span id="addrLabel">Adresse de livraison</span><textarea id="oAddr" rows="2" placeholder="N°, rue, code postal, ville"></textarea></label>
       <label class="f">Message (cadeau, étiquette personnalisée…)<textarea id="oMsg" rows="2"></textarea></label>
+      <div class="cktotal"><span>Total à régler</span><span id="ckTotal"></span></div>
       <button class="btn primary" type="submit" id="sendBtn">Envoyer ma commande</button>
       <p class="meta" id="payNote" style="margin:0">Aucun paiement en ligne : Florence vous recontacte pour confirmer et régler.</p>
     </form>
@@ -589,16 +618,29 @@ function rendrePanier(){
   hint.hidden = !(fr!==null && fr>0 && CONFIG.LIVRAISON_OFFERTE>0 && reste>0);
   if(!hint.hidden) hint.textContent=`Plus que ${fmt(reste)} pour profiter de la livraison offerte.`;
   $("#cartTotal").textContent=fmt(st+(fr||0));
-  $("#cartLines").innerHTML = ls.length ? ls.map(({k,p,q,parfum,format,prix})=>`
+  $("#cartLines").innerHTML = ls.length ? ls.map(({k,p,q,parfum,format,prix})=>{ const ph=photosDe(p)[0]; return `
     <div class="line">
-      <div class="nm">${esc(p.nom)}<div class="meta" style="font-weight:400">${esc([format,parfum&&("Parfum : "+parfum),!format&&p.contenance].filter(Boolean).join(" · "))}</div></div>
+      <div class="lthumb">${ph?`<img src="${esc(ph)}" alt="" loading="lazy">`:""}</div>
+      <div class="linfo">
+        <div class="nm">${esc(p.nom)}</div>
+        <div class="meta">${esc([format,parfum&&("Parfum : "+parfum),!format&&p.contenance].filter(Boolean).join(" · "))}</div>
+        <div class="lrow"><div class="qty"><button data-dec="${esc(k)}" aria-label="Retirer un">−</button><span>${q}</span><button data-inc="${esc(k)}" aria-label="Ajouter un" ${q>=CONFIG.QTE_MAX?"disabled":""}>+</button></div>
+          ${q>1?`<span class="meta">${fmt(prix)} l'unité</span>`:""}</div>
+      </div>
       <div class="price">${fmt(prix*q)}</div>
-      <div class="qty"><button data-dec="${esc(k)}" aria-label="Retirer un">−</button><span>${q}</span><button data-inc="${esc(k)}" aria-label="Ajouter un" ${q>=CONFIG.QTE_MAX?"disabled":""}>+</button></div>
-      <div class="meta">${fmt(prix)} l'unité</div>
-    </div>`).join("") : `<p class="empty">Votre panier est vide. Ajoutez une bougie depuis la collection.</p>`;
-  $("#cartFoot").hidden=!ls.length && !$("#orderResult").innerHTML;
+    </div>`}).join("") : `<p class="empty">Votre panier est vide. Ajoutez une bougie depuis la collection.</p>`;
+  $("#cartFoot").hidden=!ls.length;
+  $("#goCheckout").textContent=`Commander — ${fmt(st+(fr||0))}`;
+  $("#ckTotal").textContent=fmt(st+(fr||0))+(fr?` (dont ${fmt(fr)} d'envoi)`:"");
+  $("#ckRecap").innerHTML = ls.length ? `<span>${n} article${n>1?"s":""} · ${fmt(st)}</span><button type="button" id="ckEdit">Modifier le panier</button>` : "";
+  if(!ls.length && !$("#orderResult").innerHTML && etape==="checkout") etapePanier();
+  $("#orderForm").hidden=!ls.length;
+  if(!ls.length && $("#orderResult").innerHTML && etape==="checkout"){ $("#drawerTitle").textContent="Merci !"; $("#ckBack").hidden=true }
 }
-function ouvrirPanier(){ $("#drawer").hidden=$("#scrim").hidden=false }
+let etape="panier";
+function etapePanier(){ etape="panier"; $("#cartLines").hidden=false; $("#cartFoot").hidden=!lignes().length; $("#checkout").hidden=true; $("#ckBack").hidden=true; $("#drawerTitle").textContent="Votre panier" }
+function etapeCommande(){ etape="checkout"; $("#cartLines").hidden=true; $("#cartFoot").hidden=true; $("#checkout").hidden=false; $("#ckBack").hidden=false; $("#drawerTitle").textContent="Vos coordonnées"; $("#checkout").scrollTop=0 }
+function ouvrirPanier(){ if($("#orderResult").innerHTML && !lignes().length) etapeCommande(); else etapePanier(); $("#drawer").hidden=$("#scrim").hidden=false }
 function fermerPanier(){ $("#drawer").hidden=$("#scrim").hidden=true }
 
 function recap(){
@@ -680,6 +722,12 @@ document.addEventListener("click",e=>{
   if("close" in t.dataset) fermerPanier();
   if("pclose" in t.dataset) fermerFiche();
   if(t.id=="openCart"){ ouvrirPanier() }
+  if(t.id=="viderPanier"){
+    if(t.classList.contains("confirm")){ panier={}; sauver(); $("#orderResult").innerHTML=""; rendrePanier(); t.classList.remove("confirm"); t.textContent="Vider le panier"; clearTimeout(t._tm) }
+    else { t.classList.add("confirm"); t.textContent="Confirmer : tout retirer ?";
+      t._tm=setTimeout(()=>{ t.classList.remove("confirm"); t.textContent="Vider le panier" },4000) } }
+  if(t.id=="goCheckout"){ $("#orderResult").innerHTML=""; etapeCommande() }
+  if(t.id=="ckBack"||t.id=="ckEdit"){ etapePanier() }
   if(t.id=="copyRecap"){ const txt=$("#recapTxt").textContent;
     try{ navigator.clipboard.writeText(txt).then(()=>t.textContent="Copié",()=>sel()) }catch(err){ sel() }
     function sel(){ const r=document.createRange(); r.selectNodeContents($("#recapTxt")); const s=getSelection(); s.removeAllRanges(); s.addRange(r) } }
