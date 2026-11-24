@@ -145,6 +145,27 @@ a.bandeau[href]:hover{text-decoration:underline}
 .mcopy span{user-select:all;word-break:break-all;min-width:0}
 .mcopy .btn{padding:7px 14px;font-size:.85rem}
 
+/* Avis clients */
+.stars{color:var(--accent);letter-spacing:.08em;white-space:nowrap}
+.stars .off{color:var(--line)}
+.avis-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:-6px 0 22px}
+.avis-moy{font-family:var(--f-display);font-size:2rem;line-height:1}
+.avis-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.avis-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.avis-card p{margin:0;white-space:pre-line}
+.avis-qui{font-size:.85rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.avis-sur{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;font:inherit;font-size:.85rem;text-align:left}
+.avis-legal{font-size:.78rem;color:var(--muted);margin:14px 0 0}
+.card-avis{font-size:.82rem;color:var(--muted);display:flex;gap:6px;align-items:center}
+.fiche-avis{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+.fiche-avis .avis-card{padding:12px 14px}
+.notepick{display:flex;gap:4px;direction:rtl;justify-content:flex-end}
+.notepick input{position:absolute;opacity:0;pointer-events:none}
+.notepick label{font-size:2rem;line-height:1;cursor:pointer;color:var(--line)}
+.notepick input:checked ~ label,.notepick label:hover,.notepick label:hover ~ label{color:var(--accent)}
+.notepick input:focus-visible + label{outline:2px solid var(--accent);border-radius:4px}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+
 /* Choix du parfum */
 .choix select{font-size:1rem}
 .pqlist{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto;padding-right:2px}
@@ -291,7 +312,7 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
   <div class="wrap bar">
     <a class="logo" href="#top" id="top"><img id="logoImg" alt="Logo" hidden><span><span data-t="nom">Les Petites Senteurs de Florence</span><small data-t="sous_titre">Bougies artisanales · Provence</small></span></a>
     <nav class="links" aria-label="Sections">
-      <a href="#boutique">Boutique</a><a href="#parfums" id="navParfums" hidden>Parfums</a><a href="#atelier">L'atelier</a><a href="#contact">Contact</a>
+      <a href="#boutique">Boutique</a><a href="#parfums" id="navParfums" hidden>Parfums</a><a href="#avis">Avis</a><a href="#atelier">L'atelier</a><a href="#contact">Contact</a>
     </nav>
     <button class="cart-btn" id="openCart" aria-label="Ouvrir le panier">Panier <span class="n" id="cartCount">0</span></button>
   </div>
@@ -324,6 +345,18 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
       <div class="filters" id="filters" role="group" aria-label="Familles de parfum"></div>
       <div class="notice" id="notice" hidden></div>
       <div class="grid" id="grid"><p class="empty">Chargement de la collection…</p></div>
+    </div>
+  </section>
+
+  <section id="avis">
+    <div class="wrap">
+      <div class="sec-head">
+        <div><p class="eyebrow">Avis clients</p><h2 data-t="avis_titre">Ils ont aimé</h2></div>
+        <button class="btn primary" type="button" data-avis="">Laisser un avis</button>
+      </div>
+      <div class="avis-head" id="avisResume" hidden></div>
+      <div class="avis-grid" id="avisListe"><p class="empty" style="padding:0">Soyez la première personne à partager votre avis sur nos bougies.</p></div>
+      <p class="avis-legal">Les avis sont déposés par des clients sur ce site et relus par Florence avant publication.</p>
     </div>
   </section>
 
@@ -433,6 +466,34 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
   </div>
 </div>
 
+<!-- Laisser un avis -->
+<div class="scrim" id="aScrim" hidden></div>
+<div class="modal" id="aModal" hidden role="dialog" aria-modal="true" aria-label="Laisser un avis">
+  <div class="box" style="grid-template-columns:1fr;max-width:500px">
+    <form class="info order" id="avisForm" novalidate>
+      <div class="row"><h3>Votre avis</h3><button class="x" type="button" data-aclose aria-label="Fermer">×</button></div>
+      <div class="f"><span>Votre note</span>
+        <div class="notepick" role="radiogroup" aria-label="Note sur 5">
+          <input type="radio" name="note" id="n5" value="5"><label for="n5" title="5 étoiles">★</label>
+          <input type="radio" name="note" id="n4" value="4"><label for="n4" title="4 étoiles">★</label>
+          <input type="radio" name="note" id="n3" value="3"><label for="n3" title="3 étoiles">★</label>
+          <input type="radio" name="note" id="n2" value="2"><label for="n2" title="2 étoiles">★</label>
+          <input type="radio" name="note" id="n1" value="1"><label for="n1" title="1 étoile">★</label>
+        </div></div>
+      <label class="f">Votre avis porte sur<select id="aSur"><option value="">La boutique en général</option></select></label>
+      <label class="f">Votre avis<textarea id="aTexte" rows="5" maxlength="1500" placeholder="Le parfum, la qualité, l'emballage, l'accueil…"></textarea></label>
+      <div class="two">
+        <label class="f">Prénom<input id="aNom" maxlength="40" autocomplete="given-name"></label>
+        <label class="f">E-mail (facultatif, non publié)<input id="aMail" type="email" autocomplete="email"></label>
+      </div>
+      <label class="hp" aria-hidden="true">Ne pas remplir<input id="aPiege" tabindex="-1" autocomplete="off"></label>
+      <button class="btn primary" type="submit" id="aSend">Envoyer mon avis</button>
+      <p class="meta" style="margin:0">Seuls votre prénom et l'initiale de votre nom apparaissent. Florence relit chaque avis avant de le publier.</p>
+      <div id="aResult"></div>
+    </form>
+  </div>
+</div>
+
 <!-- Fiche produit -->
 <div class="scrim" id="pScrim" hidden></div>
 <div class="modal" id="pModal" hidden role="dialog" aria-modal="true" aria-label="Fiche bougie"><div class="box" id="pBox"></div></div>
@@ -466,7 +527,7 @@ const fmt = n => n.toLocaleString("fr-FR",{style:"currency",currency:"EUR"});
 const num = v => parseFloat(String(v??"").replace(/\s/g,"").replace("€","").replace(",",".")) || 0;
 const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-let produits = [], filtre = "Tout", panier = {}, demo = false, parfums = [];
+let produits = [], filtre = "Tout", panier = {}, demo = false, parfums = [], avis = [];
 const norm = t => String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
 
 function parseCSV(t){
@@ -561,10 +622,11 @@ function rendreGrille(){
         ${photosDe(p).length>1?`<button class="nav prev" data-cgal="${esc(p.id)}" data-dir="-1" aria-label="Photo précédente">‹</button><button class="nav next" data-cgal="${esc(p.id)}" data-dir="1" aria-label="Photo suivante">›</button>
         <div class="dots" aria-hidden="true">${photosDe(p).map((_,i)=>`<span${i===0?' class="on"':''}></span>`).join("")}</div>`:""}
       </div>
-      <div><h3>${esc(p.nom)}</h3><div class="meta">${esc([auChoix()?"Parfum au choix":p.parfum,p.contenance,p.modele].filter(Boolean).join(" · "))}</div></div>
+      <div><h3>${esc(p.nom)}</h3><div class="meta">${esc([auChoix()?"Parfum au choix":p.parfum,p.contenance,p.modele].filter(Boolean).join(" · "))}</div>${etoilesCarte(p)}</div>
       <div class="row"><span class="price">${prixAffiche(p)}</span><span class="meta">Fait à la commande</span></div>
       ${aChoisir(p)?`<button class="add" data-voir="${esc(p.id)}">${auChoix()?"Choisir le parfum":"Choisir le format"}</button>`:`<button class="add" data-add="${esc(p.id)}">Ajouter au panier</button>`}
     </article>`).join("") : `<p class="empty">Aucune bougie dans cette famille pour le moment.</p>`;
+  if(avis.length) rendreAvis();
 }
 
 function voir(id){
@@ -596,6 +658,7 @@ function voir(id){
       </dl>
       <div class="row"><span class="price" id="fichePrix" style="font-size:1.3rem">${p.options.length?fmt(p.options[0].prix):fmt(p.prix)}</span><span class="meta">Fabriquée à la commande</span></div>
       <button class="btn primary" id="ficheAdd" data-add="${esc(p.id)}">Ajouter au panier</button>
+      ${blocAvisFiche(p)}
     </div>`;
   ficheP=p;
   galerie={photos:photosDe(p), i:0};
@@ -911,9 +974,72 @@ function rendreParfums(){
   }).join("");
 }
 
+/* ===== Avis clients (onglet "Avis" du Sheet, rempli par le script quand Florence coche « Publier ») ===== */
+const etoiles = n => { const k=Math.round(n); return `<span class="stars" aria-label="${(Math.round(n*10)/10).toString().replace(".",",")} sur 5">${"★".repeat(k)}<span class="off">${"★".repeat(5-k)}</span></span>` };
+const avisDe = id => avis.filter(a=>a.bougie===id);
+const moyenne = l => l.reduce((s,a)=>s+a.note,0)/l.length;
+function carteAvis(a, avecSujet){
+  const p = a.bougie ? produits.find(x=>x.id===a.bougie) : null;
+  return `<div class="avis-card">${etoiles(a.note)}<p>${esc(a.texte)}</p>
+    <div class="avis-qui"><span>${esc(a.nom||"Client")}${a.date?` · ${esc(a.date)}`:""}</span>
+    ${avecSujet && p ? `<button class="avis-sur" data-voir="${esc(p.id)}">${esc(p.nom)}</button>` : ""}</div></div>`;
+}
+function etoilesCarte(p){ const l=avisDe(p.id); return l.length ? `<div class="card-avis">${etoiles(moyenne(l))}<span>(${l.length})</span></div>` : "" }
+function blocAvisFiche(p){
+  const l=avisDe(p.id);
+  return `<div class="fiche-avis">
+    <div class="row"><strong>Avis${l.length?` (${l.length}) ${etoiles(moyenne(l))}`:""}</strong>
+      <button type="button" class="avis-sur" data-avis="${esc(p.id)}">Donner mon avis</button></div>
+    ${l.slice(0,5).map(a=>carteAvis(a,false)).join("")}</div>`;
+}
+function rendreAvis(){
+  const liste=$("#avisListe"), res=$("#avisResume");
+  if(!avis.length){ res.hidden=true; return }
+  res.hidden=false;
+  res.innerHTML=`<span class="avis-moy">${(Math.round(moyenne(avis)*10)/10).toString().replace(".",",")}</span>${etoiles(moyenne(avis))}<span class="meta">${avis.length} avis</span>`;
+  liste.innerHTML=avis.slice(0,12).map(a=>carteAvis(a,true)).join("");
+}
+async function chargerAvis(){
+  if(!CONFIG.SHEET_CSV_URL.includes("/gviz/")) return;
+  try{
+    const r=await fetch(CONFIG.SHEET_CSV_URL.replace(/&gid=\d+/,"")+"&sheet=Avis&t="+Date.now()); if(!r.ok) return;
+    const rows=parseCSV(await r.text()); if(!rows.length||!("note" in rows[0])) return;
+    avis=rows.map(a=>({...a,note:Math.max(1,Math.min(5,Math.round(num(a.note))))})).filter(a=>a.texte&&a.note);
+    rendreAvis(); rendreGrille();
+  }catch(e){}
+}
+function ouvrirAvis(id){
+  const sel=$("#aSur");
+  sel.innerHTML=`<option value="">La boutique en général</option>`+produits.map(p=>`<option value="${esc(p.id)}">${esc(p.nom)}</option>`).join("");
+  sel.value=id||""; $("#aResult").innerHTML=""; $("#avisForm").querySelectorAll(".f,#aSend,.meta").forEach(x=>x.hidden=false);
+  fermerFiche(); $("#aModal").hidden=$("#aScrim").hidden=false;
+}
+function fermerAvis(){ $("#aModal").hidden=$("#aScrim").hidden=true }
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-avis]"); if(b){ e.preventDefault(); ouvrirAvis(b.dataset.avis); return }
+  if(e.target.closest("[data-aclose]")||e.target.id==="aScrim") fermerAvis();
+});
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") fermerAvis() });
+$("#avisForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const note=Number((document.querySelector('input[name="note"]:checked')||{}).value||0), texte=$("#aTexte").value.trim(), nom=$("#aNom").value.trim(), out=$("#aResult");
+  if(!note||texte.length<3||!nom){ out.innerHTML=`<div class="msg err">Choisissez une note, écrivez quelques mots et indiquez votre prénom.</div>`; return }
+  if($("#aPiege").value) return;                       // robot
+  const sur=$("#aSur"), data={type:"avis", note, texte, nom, email:$("#aMail").value.trim(), bougie:sur.value, bougie_nom:sur.selectedOptions[0].textContent};
+  const b=$("#aSend"); b.disabled=true; b.textContent="Envoi…"; let ok=false;
+  if(CONFIG.COMMANDES_URL){ try{ const r=await fetch(CONFIG.COMMANDES_URL,{method:"POST",body:JSON.stringify(data)}); ok=!!(await r.json()).ok }catch(err){} }
+  if(!ok && CONFIG.FORMSPREE_ID){ try{ const r=await fetch("https://formspree.io/f/"+CONFIG.FORMSPREE_ID,{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},
+    body:JSON.stringify({_subject:`⭐ Nouvel avis (${note}/5) — ${nom}`,...data})}); ok=r.ok }catch(err){} }
+  b.disabled=false; b.textContent="Envoyer mon avis";
+  if(ok){ out.innerHTML=`<div class="msg ok"><strong>Merci ${esc(nom)} !</strong> Votre avis sera visible dès que Florence l'aura relu.</div>`;
+    $("#avisForm").reset(); $("#avisForm").querySelectorAll(".f,#aSend,.meta").forEach(x=>x.hidden=true) }
+  else out.innerHTML=`<div class="msg err">L'envoi n'a pas fonctionné. Réessayez dans un instant.</div>`;
+});
+
 charger();
 chargerTextes();
 chargerParfums();
+chargerAvis();
 </script>
 
 </body>
