@@ -928,6 +928,7 @@ async function chargerTextes(){
       im.onload=()=>{ st.innerHTML=""; st.appendChild(im); st.classList.add("has-img") }; im.src=photoURL(T.image_accueil) }
     if(T.paypal) $("#payNote").textContent="Après l'envoi, vous pourrez régler directement par PayPal, ou attendre que Florence vous recontacte.";
     if(/^https:\/\/script\.google\.com\//.test(T.commandes_url||"")) CONFIG.COMMANDES_URL=T.commandes_url.trim();
+    compterVisite();
     if(T.paypal) $("#payWrap").hidden=false;
     if(T.paypal) CONFIG.PAYPAL=String(T.paypal).trim().replace(/^.*paypal(\.me|\.com\/paypalme)\//i,"").replace(/[\/?#].*$/,"");
     if(T.frais_livraison && !isNaN(num(T.frais_livraison))) CONFIG.FRAIS_LIVRAISON=num(T.frais_livraison);
@@ -1017,6 +1018,18 @@ function qrJoli(texte, logo){
     `<image href="${esc(logo)}" x="${t0+.2}" y="${t0+.2}" width="${trou-.4}" height="${trou-.4}" preserveAspectRatio="xMidYMid meet"/>` : "";
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.5 -0.5 ${n+1} ${n+1}" role="img" aria-label="QR code">`+
     `<g fill="${INK}">${pts}</g>${f(0,0)}${f(n-7,0)}${f(0,n-7)}${centre}</svg>`;
+}
+
+/* ===== Compteur de visites anonyme (aucune donnée personnelle, aucun cookie) ===== */
+function compterVisite(){
+  if(!CONFIG.COMMANDES_URL || navigator.webdriver || window.__visiteComptee) return;
+  window.__visiteComptee=true;
+  const jour=new Date().toISOString().slice(0,10); let nouveau="1";
+  try{ if(localStorage.getItem("psf_vu")===jour) nouveau="0"; else localStorage.setItem("psf_vu",jour) }catch(e){}
+  const qr=/[?&](src|utm_source)=qr/i.test(location.search)||/[?&]qr\b/i.test(location.search) ? "1":"0";
+  const mobile=matchMedia("(max-width: 820px)").matches||/Mobi|Android|iPhone/i.test(navigator.userAgent) ? "1":"0";
+  const u=CONFIG.COMMANDES_URL+"?visite=1&nouveau="+nouveau+"&mobile="+mobile+"&qr="+qr;
+  try{ fetch(u,{mode:"no-cors",keepalive:true}).catch(()=>{}) }catch(e){}
 }
 
 /* ===== Instagram : bouton + QR code (QR fabriqué dans la page, couleurs du site) ===== */
