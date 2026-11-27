@@ -204,7 +204,20 @@ details.parfum[open] .plus{transform:rotate(45deg)}
 @media (max-width:480px){.steps{grid-template-columns:1fr}}
 
 footer{border-top:1px solid var(--line);padding-block:32px;color:var(--muted);font-size:.9rem}
-footer .cols{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+footer .cols{display:grid;grid-template-columns:1fr 1fr auto;gap:24px 40px;align-items:start}
+footer .cols > *{min-width:0}
+@media (max-width:760px){footer .cols{grid-template-columns:1fr}}
+.insta{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.insta-lien{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 16px 8px 10px}
+.insta-lien:hover{border-color:var(--accent)}
+.insta-lien svg{width:26px;height:26px;color:var(--accent);flex:none}
+.insta-lien span{display:flex;flex-direction:column;line-height:1.2;font-weight:600}
+.insta-lien small{font-weight:400;color:var(--muted);font-size:.78rem}
+.insta-qr{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;background:#fff;border-radius:14px;padding:12px;border:1px solid var(--line)}
+.insta-qr #instaQRimg{width:156px;height:156px}
+.insta-qr svg{width:100%;height:100%;display:block}
+.insta-qr figcaption{font-size:.75rem;color:#6e6274}
+@media (max-width:600px){.insta-qr{display:none}}
 .linkbtn{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline}
 
 /* Tiroir et fenêtres */
@@ -385,6 +398,14 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
   <div class="wrap cols">
     <div><strong style="color:var(--ink)" data-t="nom">Les Petites Senteurs de Florence</strong><br><span data-t="lieu">Atelier en Provence</span><br><span id="contactMail"></span><br><span id="reseaux"></span></div>
     <div data-t="infos_commande">Commandes : retrait à l'atelier ou envoi postal. Florence confirme chaque commande sous 24 h.</div>
+    <div class="insta" id="insta" hidden>
+      <strong style="color:var(--ink)">Suivez-nous</strong>
+      <a class="insta-lien" id="instaLien" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.8l1.4-2h6.6l1.4 2h1.8A2.5 2.5 0 0 1 21 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.6"/></svg>
+        <span><span id="instaNom"></span><small>sur Instagram</small></span>
+      </a>
+      <figure class="insta-qr" id="instaQR"><div id="instaQRimg"></div><figcaption>Scannez avec votre téléphone</figcaption></figure>
+    </div>
   </div>
 </footer>
 
@@ -488,7 +509,7 @@ dl.spec dt{color:var(--muted)}dl.spec dd{margin:0}
       </div>
       <label class="hp" aria-hidden="true">Ne pas remplir<input id="aPiege" tabindex="-1" autocomplete="off"></label>
       <button class="btn primary" type="submit" id="aSend">Envoyer mon avis</button>
-      <p class="meta" style="margin:0">Seuls votre prénom et l'initiale de votre nom apparaissent. Florence relit chaque avis avant de le publier.</p>
+      <p class="meta" style="margin:0">Seul votre prénom apparaît sur le site. Florence relit chaque avis avant de le publier.</p>
       <div id="aResult"></div>
     </form>
   </div>
@@ -941,7 +962,9 @@ async function chargerTextes(){
       bd.hidden=false; }
     if(T.email){ CONFIG.EMAIL=T.email; $("#contactMail").textContent=T.email }
     if(/^#[0-9a-f]{3,8}$/i.test(T.couleur||"")) document.documentElement.style.setProperty("--accent",T.couleur);
-    const liens=[["Instagram",T.instagram],["Facebook",T.facebook]].filter(l=>/^https?:\/\//.test(l[1]||""));
+    logoQR = photoURL(T.logo||"") || photoURL(T.image_accueil||"") || "";
+    if(/^https?:\/\//.test(T.instagram||"")) afficherInstagram(T.instagram.trim());
+    const liens=[["Facebook",T.facebook]].filter(l=>/^https?:\/\//.test(l[1]||""));
     $("#reseaux").innerHTML=liens.map(([n,h])=>`<a href="${esc(h)}" target="_blank" rel="noopener">${n}</a>`).join(" · ");
   }catch(e){}
 }
@@ -972,6 +995,37 @@ function rendreParfums(){
         ${p.description?`<p class="txt">${esc(p.description)}</p>`:""}
       </div></details>`;
   }).join("");
+}
+
+/* QR code « maison » : points ronds, coins arrondis à cœur ocre, logo au centre (comme sur l'affiche) */
+let logoQR="";
+function qrJoli(texte, logo){
+  const q=qrcode(0,"H"); q.addData(texte); q.make();
+  const n=q.getModuleCount(), INK="#2b2130", OCRE="#a06a1c";
+  const coin=(r,c)=>(r<7&&c<7)||(r<7&&c>=n-7)||(r>=n-7&&c<7);
+  const trou=Math.round(n*0.22)|1, t0=(n-trou)/2;                       // zone du logo
+  let pts="";
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++){
+    if(!q.isDark(r,c)||coin(r,c)) continue;
+    if(logo && r>=t0-0.5&&r<t0+trou&&c>=t0-0.5&&c<t0+trou) continue;
+    pts+=`<circle cx="${c+.5}" cy="${r+.5}" r=".48"/>`;
+  }
+  const f=(x,y)=>`<rect x="${x+.5}" y="${y+.5}" width="6" height="6" rx="1.8" fill="none" stroke="${INK}" stroke-width="1"/>`+
+    `<rect x="${x+2}" y="${y+2}" width="3" height="3" rx=".9" fill="${OCRE}" stroke="${INK}" stroke-width=".35"/>`;
+  const centre = logo ? `<rect x="${t0-.3}" y="${t0-.3}" width="${trou+.6}" height="${trou+.6}" rx="1.6" fill="#fff"/>`+
+    `<image href="${esc(logo)}" x="${t0+.2}" y="${t0+.2}" width="${trou-.4}" height="${trou-.4}" preserveAspectRatio="xMidYMid meet"/>` : "";
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.5 -0.5 ${n+1} ${n+1}" role="img" aria-label="QR code">`+
+    `<g fill="${INK}">${pts}</g>${f(0,0)}${f(n-7,0)}${f(0,n-7)}${centre}</svg>`;
+}
+
+/* ===== Instagram : bouton + QR code (QR fabriqué dans la page, couleurs du site) ===== */
+function afficherInstagram(url){
+  const m=url.match(/instagram\.com\/([\w.]+)/i), nom=m?"@"+m[1]:"Notre compte";
+  $("#instaLien").href=url; $("#instaNom").textContent=nom; $("#insta").hidden=false;
+  const dessiner=()=>{ try{ $("#instaQRimg").innerHTML=qrJoli(url, logoQR) }catch(e){ $("#instaQR").hidden=true } };
+  if(window.qrcode) return dessiner();
+  const sc=document.createElement("script"); sc.src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
+  sc.onload=dessiner; sc.onerror=()=>{ $("#instaQR").hidden=true }; document.head.appendChild(sc);
 }
 
 /* ===== Avis clients (onglet "Avis" du Sheet, rempli par le script quand Florence coche « Publier ») ===== */
