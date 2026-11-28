@@ -1021,6 +1021,21 @@ function qrJoli(texte, logo){
 }
 
 /* ===== Compteur de visites anonyme (aucune donnée personnelle, aucun cookie) ===== */
+/* Onglet resté ouvert longtemps : on recharge au retour du client pour qu'il ait toujours la dernière version du site.
+   Le panier est conservé (enregistré dans le navigateur) ; on ne recharge pas si le formulaire de commande est en cours de saisie. */
+(function(){
+  const ouvertLe=Date.now(), DELAI=1*3600*1000;
+  function verifier(){
+    if(document.visibilityState!=="visible" || Date.now()-ouvertLe<DELAI) return;
+    const f=document.getElementById("orderForm");
+    if(f && [...f.querySelectorAll("input,textarea")].some(c=>c.type!=="hidden" && c.type!=="checkbox" && c.type!=="radio" && c.value.trim())) return;
+    location.reload();
+  }
+  document.addEventListener("visibilitychange",verifier);
+  window.addEventListener("focus",verifier);
+  window.addEventListener("pageshow",e=>{ if(e.persisted) verifier() });
+})();
+
 function compterVisite(){
   if(!CONFIG.COMMANDES_URL || navigator.webdriver || window.__visiteComptee) return;
   window.__visiteComptee=true;
